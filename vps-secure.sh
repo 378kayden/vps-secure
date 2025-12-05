@@ -99,19 +99,20 @@ else
             green_echo "✅ UFW防火墙安装完成"
         fi
     else
-        yellow_echo "❌ 跳过UFW安装，防火墙配置结束"
+        yellow_echo "❌ 未安装UFW防火墙，防火墙配置环节结束"
         goto restart_services
     fi
 fi
 
 if [ "$UFW_INSTALLED" == "yes" ]; then
-    # 完整防火墙选择菜单（1.开放端口 2.关闭防火墙 3.查看开放端口）
+    # 完整防火墙选择菜单（1.开放端口 2.关闭防火墙 3.查看开放端口 4.仅查防火墙状态）
     while true; do
         echo -e "\n请选择防火墙操作："
         echo "1. 开放防火墙端口（TCP+UDP双协议）"
-        echo "2. 关闭防火墙"
+        echo "2. 关闭防火墙（停用UFW服务）"  # 提示语明确为“停用”
         echo "3. 查看当前开放的端口"
-        read -p "输入数字1/2/3（默认2）：" FIREWALL_CHOICE
+        echo "4. 仅查看防火墙是否开启"
+        read -p "输入数字1/2/3/4（默认2）：" FIREWALL_CHOICE
         
         # 处理默认值
         if [ -z "$FIREWALL_CHOICE" ]; then
@@ -144,18 +145,32 @@ if [ "$UFW_INSTALLED" == "yes" ]; then
                 break
                 ;;
             2)
+                # 核心修改：真正关闭防火墙（停用+清空规则）
                 ufw disable -y > /dev/null 2>&1
-                green_echo "✅ 防火墙已关闭"
+                # 额外：重置UFW规则（确保无残留）
+                ufw reset -y > /dev/null 2>&1
+                # 校验关闭结果
+                if ufw status | grep -q "Status: inactive"; then
+                    green_echo "✅ 防火墙已成功关闭（UFW服务停用+规则重置）"
+                else
+                    red_echo "❌ 防火墙关闭失败，请手动执行：sudo ufw disable"
+                fi
                 break
                 ;;
             3)
                 green_echo "\n===== 当前防火墙开放的端口 =====\n"
                 ufw status numbered
                 echo -e "\n=================================="
-                read -p "按回车键继续..."  # 暂停让用户查看
+                read -p "按回车键继续..."
+                ;;
+            4)
+                green_echo "\n===== 防火墙当前状态 =====\n"
+                ufw status | grep "Status"
+                echo -e "\n=========================="
+                read -p "按回车键继续..."
                 ;;
             *)
-                red_echo "❌ 输入错误！请输入1、2或3"
+                red_echo "❌ 输入错误！请输入1、2、3或4"
                 ;;
         esac
     done
