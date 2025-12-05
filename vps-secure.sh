@@ -105,12 +105,13 @@ else
 fi
 
 if [ "$UFW_INSTALLED" == "yes" ]; then
-    # 新增：防火墙选择菜单
+    # 完整防火墙选择菜单（1.开放端口 2.关闭防火墙 3.查看开放端口）
     while true; do
         echo -e "\n请选择防火墙操作："
         echo "1. 开放防火墙端口（TCP+UDP双协议）"
         echo "2. 关闭防火墙"
-        read -p "输入数字1/2（默认2）：" FIREWALL_CHOICE
+        echo "3. 查看当前开放的端口"
+        read -p "输入数字1/2/3（默认2）：" FIREWALL_CHOICE
         
         # 处理默认值
         if [ -z "$FIREWALL_CHOICE" ]; then
@@ -147,8 +148,14 @@ if [ "$UFW_INSTALLED" == "yes" ]; then
                 green_echo "✅ 防火墙已关闭"
                 break
                 ;;
+            3)
+                green_echo "\n===== 当前防火墙开放的端口 =====\n"
+                ufw status numbered
+                echo -e "\n=================================="
+                read -p "按回车键继续..."  # 暂停让用户查看
+                ;;
             *)
-                red_echo "❌ 输入错误！请输入1或2"
+                red_echo "❌ 输入错误！请输入1、2或3"
                 ;;
         esac
     done
