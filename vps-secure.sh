@@ -22,13 +22,24 @@ MAX_RETRY="3"
 SSH_SERVICE="ssh"
 LOG_PATH="/var/log/auth.log"
 
-green_echo "\n===== 【1/5】更新系统依赖包 ====="
-apt update -y && apt upgrade -y > /dev/null 2>&1
-if [ $? -eq 0 ]; then
-    green_echo "✅ 系统依赖更新完成"
-else
-    yellow_echo "⚠️  部分依赖包升级失败，不影响核心功能"
+green_echo "\n===== 【1/5】更新安全包+核心依赖 ====="
+# 步骤1：更新源（强制刷新）
+green_echo "🔄 正在更新软件源..."
+apt update -y > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    red_echo "❌ 软件源更新失败！请检查网络后重试"
+    exit 1
 fi
+
+# 步骤2：仅升级安全相关包（关键！避免全量升级）
+green_echo "🔄 正在升级系统安全包（耗时约1-5分钟）..."
+apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -s | grep -i security | awk '{print $2}' | xargs apt-get install -y > /dev/null 2>&1
+
+# 步骤3：安装/升级脚本必需依赖（fail2ban/ufw）
+green_echo "🔄 正在安装/升级脚本核心依赖..."
+apt install -y fail2ban ufw > /dev/null 2>&1
+
+green_echo "✅ 安全包+核心依赖更新完成"
 
 green_echo "\n===== 【2/5】配置SSH端口 ====="
 read -p "请输入SSH端口（回车默认使用 $DEFAULT_SSH_PORT，范围1025-65535）：" INPUT_PORT
@@ -65,7 +76,6 @@ fi
 green_echo "✅ SSH端口配置语法校验通过"
 
 green_echo "\n===== 【4/5】安装并配置fail2ban ====="
-apt install -y fail2ban > /dev/null 2>&1
 cat > /etc/fail2ban/jail.local << EOF
 [DEFAULT]
 ignoreip = $TRUST_IPS
@@ -105,16 +115,14 @@ else
 fi
 
 if [ "$UFW_INSTALLED" == "yes" ]; then
-    # 完整防火墙选择菜单（1.开放端口 2.关闭防火墙 3.查看开放端口 4.仅查防火墙状态）
     while true; do
         echo -e "\n请选择防火墙操作："
         echo "1. 开放防火墙端口（TCP+UDP双协议）"
-        echo "2. 关闭防火墙（停用UFW服务）"  # 提示语明确为“停用”
+        echo "2. 关闭防火墙（停用UFW服务）"
         echo "3. 查看当前开放的端口"
         echo "4. 仅查看防火墙是否开启"
         read -p "输入数字1/2/3/4（默认2）：" FIREWALL_CHOICE
         
-        # 处理默认值
         if [ -z "$FIREWALL_CHOICE" ]; then
             FIREWALL_CHOICE="2"
         fi
@@ -145,11 +153,8 @@ if [ "$UFW_INSTALLED" == "yes" ]; then
                 break
                 ;;
             2)
-                # 核心修改：真正关闭防火墙（停用+清空规则）
                 ufw disable -y > /dev/null 2>&1
-                # 额外：重置UFW规则（确保无残留）
                 ufw reset -y > /dev/null 2>&1
-                # 校验关闭结果
                 if ufw status | grep -q "Status: inactive"; then
                     green_echo "✅ 防火墙已成功关闭（UFW服务停用+规则重置）"
                 else
