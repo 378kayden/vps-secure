@@ -105,32 +105,53 @@ else
 fi
 
 if [ "$UFW_INSTALLED" == "yes" ]; then
-    read -p "是否开放防火墙端口？(y/n，默认n)：" OPEN_PORT
-    if [[ "$OPEN_PORT" == "y" || "$OPEN_PORT" == "Y" ]]; then
-        read -p "请输入要开放的端口（多个端口用空格分隔，如：12128 80）：" INPUT_PORTS
-        if [ -z "$INPUT_PORTS" ]; then
-            red_echo "❌ 未输入端口，跳过防火墙开放操作"
-        else
-            for PORT in $INPUT_PORTS; do
-                if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
-                    red_echo "⚠️  端口$PORT无效，跳过该端口"
-                else
-                    ufw allow $PORT/tcp -y > /dev/null 2>&1
-                    ufw allow $PORT/udp -y > /dev/null 2>&1
-                    green_echo "✅ 已开放端口 $PORT（TCP+UDP）"
-                fi
-            done
-            ufw enable -y > /dev/null 2>&1
-            ufw reload -y > /dev/null 2>&1
-            if [ $? -eq 0 ]; then
-                green_echo "✅ 防火墙规则已重载（TCP+UDP生效）"
-            else
-                red_echo "⚠️  防火墙重载失败，请手动执行ufw reload"
-            fi
+    # 新增：防火墙选择菜单
+    while true; do
+        echo -e "\n请选择防火墙操作："
+        echo "1. 开放防火墙端口（TCP+UDP双协议）"
+        echo "2. 关闭防火墙"
+        read -p "输入数字1/2（默认2）：" FIREWALL_CHOICE
+        
+        # 处理默认值
+        if [ -z "$FIREWALL_CHOICE" ]; then
+            FIREWALL_CHOICE="2"
         fi
-    else
-        yellow_echo "❌ 跳过防火墙端口开放操作"
-    fi
+
+        case $FIREWALL_CHOICE in
+            1)
+                read -p "请输入要开放的端口（多个端口用空格分隔，如：12128 80）：" INPUT_PORTS
+                if [ -z "$INPUT_PORTS" ]; then
+                    red_echo "❌ 未输入端口，跳过防火墙开放操作"
+                else
+                    for PORT in $INPUT_PORTS; do
+                        if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+                            red_echo "⚠️  端口$PORT无效，跳过该端口"
+                        else
+                            ufw allow $PORT/tcp -y > /dev/null 2>&1
+                            ufw allow $PORT/udp -y > /dev/null 2>&1
+                            green_echo "✅ 已开放端口 $PORT（TCP+UDP）"
+                        fi
+                    done
+                    ufw enable -y > /dev/null 2>&1
+                    ufw reload -y > /dev/null 2>&1
+                    if [ $? -eq 0 ]; then
+                        green_echo "✅ 防火墙规则已重载（TCP+UDP生效）"
+                    else
+                        red_echo "⚠️  防火墙重载失败，请手动执行ufw reload"
+                    fi
+                fi
+                break
+                ;;
+            2)
+                ufw disable -y > /dev/null 2>&1
+                green_echo "✅ 防火墙已关闭"
+                break
+                ;;
+            *)
+                red_echo "❌ 输入错误！请输入1或2"
+                ;;
+        esac
+    done
 fi
 
 : restart_services
@@ -150,7 +171,7 @@ echo -n "fail2ban状态："
 systemctl status fail2ban --no-pager | grep "Active: active (running)" > /dev/null && green_echo "✅ 正常" || red_echo "❌ 异常"
 if [ "$UFW_INSTALLED" == "yes" ]; then
     echo -n "防火墙状态："
-    ufw status | grep "Status: active" > /dev/null && green_echo "✅ 已启用" || yellow_echo "⚠️  未启用"
+    ufw status | grep "Status: active" > /dev/null && green_echo "✅ 已启用" || yellow_echo "⚠️  已关闭"
     echo -n "开放端口验证："
     ufw status | grep "$NEW_SSH_PORT" > /dev/null && green_echo "✅ TCP+UDP已开放" || red_echo "❌ 端口未开放"
 fi
