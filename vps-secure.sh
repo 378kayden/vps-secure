@@ -23,7 +23,6 @@ SSH_SERVICE="ssh"
 LOG_PATH="/var/log/auth.log"
 
 green_echo "\n===== 【1/5】更新安全包+核心依赖 ====="
-# 步骤1：更新源（强制刷新）
 green_echo "🔄 正在更新软件源..."
 apt update -y > /dev/null 2>&1
 if [ $? -ne 0 ]; then
@@ -31,11 +30,9 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 步骤2：仅升级安全相关包（关键！避免全量升级）
 green_echo "🔄 正在升级系统安全包（耗时约1-5分钟）..."
 apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -s | grep -i security | awk '{print $2}' | xargs apt-get install -y > /dev/null 2>&1
 
-# 步骤3：安装/升级脚本必需依赖（fail2ban/ufw）
 green_echo "🔄 正在安装/升级脚本核心依赖..."
 apt install -y fail2ban ufw > /dev/null 2>&1
 
