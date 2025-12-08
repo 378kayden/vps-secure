@@ -197,7 +197,7 @@ if [ "$UFW_INSTALLED" == "yes" ]; then
     echo -n "防火墙状态："
     ufw status | grep "Status: active" > /dev/null && green_echo "✅ 已启用" || yellow_echo "⚠️  已关闭"
     echo -n "开放端口验证："
-    ufw status | grep "$NEW_SSH_PORT" > /dev/null && green_echo "✅ TCP+UDP已开放" || red_echo "❌ 端口未开放"
+    ufw status | grep "$NEW_SSH_PORT" > /dev/null && green_echo "✅ TCP+UDP已开放" || red_echo "❌ 防火墙未开启"
 fi
 
 green_echo "\n===== 操作完成！测试登录命令：ssh 用户名@服务器IP -p $NEW_SSH_PORT ====="
